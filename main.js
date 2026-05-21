@@ -35,34 +35,30 @@ window.addEventListener('DOMContentLoaded', () => {
   }, 300);
 });
 
-// محرك الـ Scroll Reveal المتتابع الفاخر
 function initScrollReveal() {
   const observer = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
       if (entry.isIntersecting) {
-        // إظهار رأس السكشن أولاً
         const header = entry.target.querySelector('.section-header');
         if (header) header.classList.add('revealed');
         
-        // إظهار الكروت الداخلية بشكل متتابع زمني (Staggered Effect)
         const cards = entry.target.querySelectorAll('.streamlit-card, .notebook-card');
         cards.forEach((card, index) => {
           setTimeout(() => {
             card.classList.add('revealed');
           }, index * 150);
         });
-        
         observer.unobserve(entry.target);
       }
     });
-  }, { threshold: 0.08 }); // تقليل الـ threshold ليعمل بسلاسة أكبر على شاشات الموبايل الطويلة
+  }, { threshold: 0.08 });
 
   document.querySelectorAll('.section').forEach(section => {
     observer.observe(section);
   });
 }
 
-// فيزيقيا الأيقونات العائمة المتجاوبة هندسياً (Responsive Elastic Float)
+// محرك الفيزيقيا المطور بنظام AABB لمنع تداخل الأيقونات تماماً على الموبايل والكمبيوتر
 function initSkillsPhysics() {
   const container = document.querySelector('.skills-shell');
   if (!container) return;
@@ -70,15 +66,14 @@ function initSkillsPhysics() {
   const blocks = Array.from(container.querySelectorAll('.skill-block'));
   if (blocks.length === 0) return;
   
-  const containerW = container.clientWidth;
-  const containerH = container.clientHeight;
+  let containerW = container.clientWidth;
+  let containerH = container.clientHeight;
   
-  // --- تعديل ذكي: حساب الأبعاد هندسياً بناءً على نوع الجهاز ---
   const isMobile = containerW < 768;
-  const blockW = isMobile ? 80 : 110;  // مطابقة عرض العنصر مع الأبعاد الجديدة في الـ CSS
-  const blockH = isMobile ? 110 : 140; // مطابقة الارتفاع الكلي شامل الـ label
-  const margin = isMobile ? 15 : 30;
-  const speedModifier = isMobile ? 0.35 : 0.6; // إبطاء الحركة على الموبايل لتبدو مريحة ولا تسبب تشتت
+  const blockW = isMobile ? 80 : 110;  
+  const blockH = isMobile ? 110 : 140; 
+  const margin = isMobile ? 12 : 25;
+  const speedModifier = isMobile ? 0.3 : 0.55; 
   
   const nodes = [];
 
@@ -89,8 +84,11 @@ function initSkillsPhysics() {
     do {
       x = Math.random() * (containerW - blockW - margin * 2) + margin;
       y = Math.random() * (containerH - blockH - margin * 2) + margin;
-      // ضبط مسافة الأمان الأولية لمنع التكدس عند التحميل
-      isOverlapping = nodes.some(n => Math.hypot(n.x - x, n.y - y) < blockW + (isMobile ? 8 : 15));
+      
+      // فحص أولي للمربعات المحيطة لمنع التكدس الأولي العشوائي
+      isOverlapping = nodes.some(n => {
+        return Math.abs(n.x - x) < (blockW + 10) && Math.abs(n.y - y) < (blockH + 10);
+      });
       safetyCounter++;
     } while (isOverlapping && safetyCounter < 300);
     
@@ -102,59 +100,84 @@ function initSkillsPhysics() {
     nodes.push({
       el: block,
       x, y,
+      w: blockW,
+      h: blockH,
       vx: (Math.random() - 0.5) * speedModifier, 
       vy: (Math.random() - 0.5) * speedModifier,
-      radius: blockW / 2
+      scale: 1
     });
   });
 
   function updatePhysics() {
+    containerW = container.clientWidth;
+    containerH = container.clientHeight;
+    
     for (let i = 0; i < nodes.length; i++) {
       let n = nodes[i];
       
       n.x += n.vx;
       n.y += n.vy;
       
-      // الارتداد المطاطي من الجدران بدقة
+      // الارتداد المطاطي الذكي من جدران الـ Container
       if (n.x < margin) { n.x = margin; n.vx *= -1; }
-      if (n.x > containerW - blockW - margin) { n.x = containerW - blockW - margin; n.vx *= -1; }
+      if (n.x > containerW - n.w - margin) { n.x = containerW - n.w - margin; n.vx *= -1; }
       if (n.y < margin) { n.y = margin; n.vy *= -1; }
-      if (n.y > containerH - blockH - margin) { n.y = containerH - blockH - margin; n.vy *= -1; }
+      if (n.y > containerH - n.h - margin) { n.y = containerH - n.h - margin; n.vy *= -1; }
       
-      // حسابات منع التداخل والاصطدام التبادلي (Anti-Collision)
+      // نظام تصادم رادع ومستقر يعتمد على كتل صناديق الـ AABB المستطيلة
       for (let j = i + 1; j < nodes.length; j++) {
         let n2 = nodes[j];
-        let dx = n2.x - n.x;
-        let dy = n2.y - n.y;
-        let dist = Math.hypot(dx, dy);
-        let minDist = blockW + (isMobile ? 4 : 10); // تخصيص مسافة نصف قطر التصادم حسب حجم الأيقونة الحالي
         
-        if (dist < minDist) {
-          let overlap = minDist - dist;
-          let angle = Math.atan2(dy, dx);
-          
-          // فصل العناصر فوراً برفق لمنع الالتصاق والارتعاش
-          n.x -= Math.cos(angle) * overlap * 0.5;
-          n.y -= Math.sin(angle) * overlap * 0.5;
-          n2.x += Math.cos(angle) * overlap * 0.5;
-          n2.y += Math.sin(angle) * overlap * 0.5;
-          
-          // تبادل طاقات متجه السرعة
-          let tempVx = n.vx; n.vx = n2.vx; n2.vx = tempVx;
-          let tempVy = n.vy; n.vy = n2.vy; n2.vy = tempVy;
+        // حساب مراكز الأيقونات الحالية
+        let cx1 = n.x + n.w / 2;
+        let cy1 = n.y + n.h / 2;
+        let cx2 = n2.x + n2.w / 2;
+        let cy2 = n2.y + n2.h / 2;
+        
+        let dx = cx2 - cx1;
+        let dy = cy2 - cy1;
+        
+        // مسافة الأمان الفاصلة بين الأيقونات
+        let gap = isMobile ? 8 : 15;
+        let targetDistX = n.w + gap;
+        let targetDistY = n.h + gap;
+        
+        let overlapX = targetDistX - Math.abs(dx);
+        let overlapY = targetDistY - Math.abs(dy);
+        
+        // إذا حدث تداخل على المحورين السيني والصادي، يتم حل الاصطدام فوراً بالدفع المرتد
+        if (overlapX > 0 && overlapY > 0) {
+          if (overlapX < overlapY) {
+            // دفع أفقي على محور X
+            let pushX = overlapX * 0.5;
+            if (dx > 0) { n.x -= pushX; n2.x += pushX; } else { n.x += pushX; n2.x -= pushX; }
+            let temp = n.vx; n.vx = n2.vx; n2.vx = temp; // تبادل السرعات للارتداد
+          } else {
+            // دفع رأسي على محور Y (حل مشكلة الركوب فوق بعض)
+            let pushY = overlapY * 0.5;
+            if (dy > 0) { n.y -= pushY; n2.y += pushY; } else { n.y += pushY; n2.y -= pushY; }
+            let temp = n.vy; n.vy = n2.vy; n2.vy = temp;
+          }
         }
       }
       
+      // تطبيق الإحداثيات الجديدة مع الحفاظ على حركات الـ Scale والتفاعل
       n.el.style.left = `${n.x}px`;
       n.el.style.top = `${n.y}px`;
+      n.el.style.transform = `scale(${n.scale})`;
     }
     requestAnimationFrame(updatePhysics);
   }
   
   updatePhysics();
+  
+  blocks.forEach((block, idx) => {
+    const node = nodes[idx];
+    block.addEventListener('mouseenter', () => { node.scale = 1.12; block.style.zIndex = 30; });
+    block.addEventListener('mouseleave', () => { node.scale = 1; block.style.zIndex = 2; });
+  });
 }
 
-// محرك شبكة الجسيمات العملاقة عالية الكثافة (Neural Network Canvas)
 function initCanvas() {
   const canvas = document.getElementById('neuralCanvas');
   const ctx = canvas.getContext('2d');
@@ -163,13 +186,12 @@ function initCanvas() {
   const particles = [];
   const mouse = { x: width / 2, y: height / 2, active: false };
 
-  // جعل كثافة الشبكة والمسافات متغيرة تلقائياً حسب حجم الشاشة لضمان عدم إبطاء الهواتف
   const isSmallScreen = width < 768;
   const config = {
-    density: isSmallScreen ? Math.min(60, Math.floor(width / 6)) : Math.min(160, Math.floor(width / 8)),
-    linkDistance: isSmallScreen ? 160 : 280, 
-    mouseRadius: isSmallScreen ? 180 : 350,   
-    particleSpeed: isSmallScreen ? 0.5 : 0.85
+    density: isSmallScreen ? Math.min(50, Math.floor(width / 6)) : Math.min(160, Math.floor(width / 8)),
+    linkDistance: isSmallScreen ? 150 : 280, 
+    mouseRadius: isSmallScreen ? 160 : 350,   
+    particleSpeed: isSmallScreen ? 0.45 : 0.85
   };
 
   class Particle {
@@ -195,8 +217,8 @@ function initCanvas() {
         let dist = Math.hypot(dx, dy);
         if (dist < config.mouseRadius) {
           let force = (config.mouseRadius - dist) / config.mouseRadius;
-          this.x += (dx / dist) * force * (isSmallScreen ? 0.8 : 1.5);
-          this.y += (dy / dist) * force * (isSmallScreen ? 0.8 : 1.5);
+          this.x += (dx / dist) * force * (isSmallScreen ? 0.7 : 1.5);
+          this.y += (dy / dist) * force * (isSmallScreen ? 0.7 : 1.5);
         }
       }
     }
@@ -231,11 +253,7 @@ function initCanvas() {
       }
     }
 
-    particles.forEach(p => {
-      p.update();
-      p.draw();
-    });
-
+    particles.forEach(p => { p.update(); p.draw(); });
     requestAnimationFrame(renderLoop);
   }
 
@@ -245,19 +263,9 @@ function initCanvas() {
     width = canvas.width = window.innerWidth;
     height = canvas.height = window.innerHeight;
   });
-  
-  // دعم أحداث اللمس على الموبايل (Touch Events) لتتفاعل الشبكة مع يد المستخدم
-  window.addEventListener('mousemove', (e) => {
-    mouse.x = e.clientX;
-    mouse.y = e.clientY;
-    mouse.active = true;
-  });
+  window.addEventListener('mousemove', (e) => { mouse.x = e.clientX; mouse.y = e.clientY; mouse.active = true; });
   window.addEventListener('touchmove', (e) => {
-    if(e.touches.length > 0) {
-      mouse.x = e.touches[0].clientX;
-      mouse.y = e.touches[0].clientY;
-      mouse.active = true;
-    }
+    if(e.touches.length > 0) { mouse.x = e.touches[0].clientX; mouse.y = e.touches[0].clientY; mouse.active = true; }
   });
   window.addEventListener('mouseleave', () => { mouse.active = false; });
   window.addEventListener('touchend', () => { mouse.active = false; });

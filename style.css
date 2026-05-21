@@ -97,13 +97,65 @@ body::before {
   flex-wrap: wrap; /* لترتيب الأزرار تحت بعضها في الشاشات الصغيرة جداً */
 }
 
+/* --- ابحث عن تصميم الـ .btn وعدله بفرضه كمظهر ثابت لا ينكسر --- */
 .btn {
   padding: 0.9rem 1.8rem;
   border-radius: 999px;
   text-decoration: none;
   font-weight: 700;
   font-size: 0.95rem;
+  white-space: nowrap; /* ميزة حاسمة تمنع انكسار النص وتشويه الزرار نهائياً */
   transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  display: inline-block;
+}
+
+/* --- باقي استايلات الموبايل التجاوبية لشبكة العرض --- */
+@media (max-width: 768px) {
+  .section {
+    padding: 4rem 1rem;
+  }
+  
+  .hero-copy {
+    padding: 2.5rem 1.2rem;
+    border-radius: 28px;
+  }
+  
+  .skills-shell {
+    height: 520px; 
+    border-radius: 28px;
+  }
+  
+  .skill-block {
+    width: 80px; 
+    transition: transform 0.2s ease;
+  }
+  
+  .skill-logo-container {
+    width: 68px;  
+    height: 68px;
+    border-radius: 18px;
+  }
+  
+  .skill-label {
+    font-size: 0.78rem; 
+    margin-top: 0.4rem;
+  }
+  
+  .streamlit-grid, .notebook-grid {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .hero-actions {
+    flex-direction: column; /* ترتيب عمودي مريح للأزرار على الشاشات الصغيرة جداً */
+    width: 100%;
+  }
+  .hero-actions .btn {
+    width: 100%;
+    text-align: center;
+  }
 }
 
 .btn-primary {
